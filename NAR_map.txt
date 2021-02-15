@@ -1,0 +1,32 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+
+begin
+
+f = addfile("./CERES_EBAF-TOA_Ed4.1_Subset_200003-201906.nc", "r")
+
+isr = f->solar_mon
+rsr = f->toa_sw_all_mon
+olr = f->toa_lw_all_mon
+asr = isr - rsr
+nar = asr - olr
+copy_VarCoords(rsr, nar)
+
+fynar = nar(0:227,:,:)
+
+means = dim_avg_n(fynar, 0)
+means!0 = "lat"
+means!1 = "lon"
+means&lat = fynar&lat
+means&lon = fynar&lon
+
+wks = gsn_open_wks("pdf", getenv("outName"))
+res = True
+res@tiMainString = "Global Mean NAR, Mar 2000 - Feb 2019"
+res@mpProjection = "CylindricalEquidistant"
+res@cnFillOn = True
+res@cnLinesOn = False
+plot = gsn_csm_contour_map(wks, means, res)
+
+end

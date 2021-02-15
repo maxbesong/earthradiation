@@ -1,0 +1,63 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+
+begin
+
+f = addfile("./CERES_EBAF-TOA_Ed4.1_Subset_200003-201906.nc", "r")
+
+isr = f->solar_mon
+rsr = f->toa_sw_all_mon
+
+asr = isr - rsr
+copy_VarCoords(rsr, asr)
+
+fyasr = asr(0:227,:,:)
+
+years = new(19, float)
+i = 0
+do while (i .lt. 19)
+  years(i) = i
+  i = i + 1
+end do
+
+annASR = new((/dimsizes(years), dimsizes(asr&lat), dimsizes(asr&lon)/), float)
+i = 0
+do while (i .lt. dimsizes(years))
+	oneYear = fyasr(i*12:i*12+11,:,:)
+	annASR(i,:,:) = dim_avg_n(oneYear, 0)
+	i = i + 1
+end do
+
+slopes = new((/dimsizes(asr&lat), dimsizes(asr&lon)/), float)
+iLat = 0
+do while (iLat .lt. dimsizes(asr&lat))
+	iLon = 0
+	do while (iLon .lt. dimsizes(asr&lon))
+		slopes(iLat,iLon) = regCoef(years, annASR(:,iLat,iLon))
+		iLon = iLon + 1
+	end do
+	iLat = iLat + 1
+end do
+slopes!0 = "lat"
+slopes!1 = "lon"
+slopes&lat = asr&lat
+slopes&lon = asr&lon
+
+printMinMax(slopes,1)
+
+wks = gsn_open_wks("pdf", getenv("outName"))
+res = True
+res@tiMainString = "Global Yearly ASR Trend, Mar 2000 - Feb 2019"
+res@mpProjection = "CylindricalEquidistant"
+res@cnFillOn = True
+res@gsnSpreadColors = True
+res@cnLinesOn = False
+res@cnLevelSelectionMode = "ManualLevels"
+res@cnMinLevelValF = -2
+res@cnMaxLevelValF = 2
+res@cnLevelSpacingF = 0.2
+gsn_define_colormap(wks, "BlWhRe")
+plot = gsn_csm_contour_map(wks, slopes, res)
+
+end

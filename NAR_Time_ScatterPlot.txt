@@ -1,0 +1,59 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+
+begin
+
+f = addfile("./CERES_EBAF-TOA_Ed4.1_Subset_200003-201906.nc", "r")
+
+isr = f->solar_mon
+rsr = f->toa_sw_all_mon
+olr = f->toa_lw_all_mon
+asr = isr - rsr
+nar = asr - olr
+copy_VarCoords(rsr, nar)
+
+fynar = nar(0:227,:,:)
+
+years = new(19, float)
+i = 0
+do while (i .lt. 19)
+  years(i) = i
+  i = i + 1
+end do
+
+narMeans = new(19, float)
+i = 0
+do while (i .lt. 19)
+  oneYear = fynar(i*12:i*12+11,:,:)
+  meanLon = dim_avg_n(oneYear, 2)
+  meanLonTime = dim_avg_n(meanLon, 0)
+  meanLonTime!0 = "lat"
+  meanLonTime&lat = fynar&lat
+  meanLonTime = meanLonTime * cos(meanLonTime&lat * 3.141593 / 180)
+  narMeans(i) = dim_avg_n(meanLonTime, 0)
+  i = i + 1
+end do
+
+rc = regline(years, narMeans)
+reg = rc * (years - rc@xave) + rc@yave
+
+combinedY = (/narMeans, reg/)
+
+regStats = regline_stats(years, narMeans)
+strR = "r = " + regStats@r
+bVal = rc * -1 * rc@xave + rc@yave
+strEq = "nar = " + rc + "*t + " + bVal
+
+wks = gsn_open_wks("pdf", getenv("outName"))
+res = True
+res@tiMainString = "Mean NAR vs Time"
+res@tiXAxisString = "Years after 2000"
+res@tiYAxisString = "Mean NAR (W/m^2)"
+res@xyMarkLineModes = (/"Markers", "Lines"/)
+res@pmLegendDisplayMode = "Always"
+res@pmLegendHeightF = 0.08
+res@xyExplicitLegendLabels = (/strR, strEq/)
+plot = gsn_csm_xy(wks, years, combinedY, res)
+
+end

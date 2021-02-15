@@ -1,0 +1,53 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+
+begin
+
+f = addfile("./CERES_EBAF-TOA_Ed4.1_Subset_200003-201906.nc", "r")
+
+isr = f->solar_mon
+fyisr = isr(0:227,:,:)
+
+years = new(19, float)
+i = 0
+do while (i .lt. 19)
+  years(i) = i
+  i = i + 1
+end do
+
+isrMeans = new(19, float)
+i = 0
+do while (i .lt. 19)
+  oneYear = fyisr(i*12:i*12+11,:,:)
+  meanLon = dim_avg_n(oneYear, 2)
+  meanLonTime = dim_avg_n(meanLon, 0)
+  meanLonTime!0 = "lat"
+  meanLonTime&lat = fyisr&lat
+  meanLonTime = meanLonTime * cos(meanLonTime&lat * 3.141593 / 180)
+  isrMeans(i) = dim_avg_n(meanLonTime, 0)
+  i = i + 1
+end do
+
+rc = regline(years, isrMeans)
+reg = rc * (years - rc@xave) + rc@yave
+
+combinedY = (/isrMeans, reg/)
+
+regStats = regline_stats(years, isrMeans)
+strR = "r = " + regStats@r
+bVal = rc * -1 * rc@xave + rc@yave
+strEq = "isr = " + rc + "*t + " + bVal
+
+wks = gsn_open_wks("pdf", getenv("outName"))
+res = True
+res@tiMainString = "Mean ISR vs Time"
+res@tiXAxisString = "Years after 2000"
+res@tiYAxisString = "Mean ISR (W/m^2)"
+res@xyMarkLineModes = (/"Markers", "Lines"/)
+res@pmLegendDisplayMode = "Always"
+res@pmLegendHeightF = 0.08
+res@xyExplicitLegendLabels = (/strR, strEq/)
+plot = gsn_csm_xy(wks, years, combinedY, res)
+
+end

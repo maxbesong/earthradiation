@@ -1,0 +1,39 @@
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_code.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/gsn_csm.ncl"
+load "$NCARG_ROOT/lib/ncarg/nclscripts/csm/contributed.ncl"
+
+begin
+
+f = addfile("./CERES_EBAF-TOA_Ed4.1_Subset_200003-201906.nc", "r")
+
+rsr = f->toa_sw_all_mon
+fyrsr = rsr(0:227,:,:)
+
+latMin = 20
+latMax = 50
+lonMin = 360 - 130
+lonMax = 360 - 60
+
+usrsr = fyrsr(:,{latMin:latMax},{lonMin:lonMax})
+
+means = dim_avg_n(usrsr, 0)
+means!0 = "lat"
+means!1 = "lon"
+means&lat = usrsr&lat
+means&lon = usrsr&lon
+
+wks = gsn_open_wks("pdf", getenv("outName"))
+res = True
+res@tiMainString = "United States Mean RSR, Mar 2000 - Feb 2019"
+res@mpProjection = "CylindricalEquidistant"
+res@cnFillOn = True
+res@cnLinesOn = False
+res@mpMinLatF = latMin
+res@mpMaxLatF = latMax
+res@mpMinLonF = lonMin
+res@mpMaxLonF = lonMax
+res@gsnAddCyclic = False
+res@mpOutlineBoundarySets = "GeophysicalAndUSStates"
+plot = gsn_csm_contour_map(wks, means, res)
+
+end
